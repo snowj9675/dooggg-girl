@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}DogGirl — Dog & Owner Moments, Videos and Stories{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow"><span class="live-dot"></span> THE DOG & OWNER COLLECTION</div>
+  <h1>A little more <em>dog.</em><br>A lot more joy.</h1>
+  <p>Everyday bonds, playful moments and unforgettable canine personalities — all in one place.</p>
+  <form class="search" action="/" method="get" role="search">
+    <span aria-hidden="true">⌕</span><input name="q" value="{{ search }}" placeholder="Search dog moments, training, and more..." aria-label="Search the gallery">
+    <button type="submit">Search →</button>
+  </form>
+</section>
+<section class="collection" aria-label="Gallery">
+  <div class="section-heading"><div><div class="eyebrow muted">DISCOVER THE COLLECTION</div><h2>Explore moments <span class="number">{{ count|string }} clips</span></h2></div><span class="small-note">Fresh finds, happy tails.</span></div>
+  <div class="filters">
+    {% for cat in categories %}<a href="{{ url_for('index', category=cat, q=search) }}" class="filter {% if cat == selected %}active{% endif %}">{{ cat }}</a>{% endfor %}
+  </div>
+  {% if error %}<p class="notice">{{ error }}</p>{% endif %}
+  {% if images %}
+  <div class="gallery">
+    {% for item in images %}
+    <a class="tile" href="{{ url_for('watch', item_id=item.id) }}" aria-label="View {{ item.title }}">
+      <div class="poster"><img src="{{ url_for('image', item_id=item.id) }}" alt="{{ item.title }}" loading="{% if loop.index <= 3 %}eager{% else %}lazy{% endif %}" onerror="this.style.opacity='.05'"><span class="play" aria-hidden="true">▶</span><span class="photo-tag">STORY</span></div>
+      <div class="tile-info"><span class="category">{{ item.category }}</span><h3>{{ item.title }}</h3><p>{{ item.date }} <span>↗ Explore</span></p></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty">No moments match this search. <a href="/">Explore all</a></div>{% endif %}
+  {% if total_pages > 1 %}<nav class="pagination" aria-label="Pagination">
+    {% if page > 1 %}<a href="{{ url_for('index', page=page-1, q=search, category=selected) }}">← Previous</a>{% endif %}
+    <span>Page {{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}<a href="{{ url_for('index', page=page+1, q=search, category=selected) }}">Next →</a>{% endif %}
+  </nav>{% endif %}
+</section>
+<section class="future">
+  <div class="future-badge">COMING LATER <span>↗</span></div>
+  <div><h2>More to discover.</h2><p>A new collection powered by our partner feed will live here. This space is reserved and doesn't make external requests yet.</p></div>
+  <span class="future-icon" aria-hidden="true">✳</span>
+</section>
+{% endblock %}
