@@ -11,7 +11,7 @@
   </form>
 </section>
 <section class="collection" aria-label="Gallery">
-  <div class="section-heading"><div><div class="eyebrow muted">DISCOVER THE COLLECTION</div><h2>Explore moments <span class="number">{{ count|string }} clips</span></h2></div><span class="small-note">Fresh finds, happy tails.</span></div>
+  <div class="section-heading"><div><div class="eyebrow muted">DISCOVER THE COLLECTION</div><h2>Explore moments <span class="number">{{ count }} stories</span></h2></div><span class="small-note">Fresh finds, happy tails.</span></div>
   <div class="filters">
     {% for cat in categories %}<a href="{{ url_for('index', category=cat, q=search) }}" class="filter {% if cat == selected %}active{% endif %}">{{ cat }}</a>{% endfor %}
   </div>
