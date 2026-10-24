@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#101114">
   <title>{% block title %}{{ site_name }} | Dog & Owner Moments{% endblock %}</title>
   <meta name="description" content="{% block description %}Discover entertaining dog and owner moments, dog training, pet care and funny videos.{% endblock %}">
+  <link rel="canonical" href="{{ request.base_url }}">
+  {% if structured is defined %}<script type="application/ld+json">{{ structured | tojson }}</script>{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
