@@ -15,13 +15,13 @@ PAGE_SIZE = 12
 
 # Do not publish explicit animal sexual content or titles about minors.
 BLOCKED = re.compile(
-    r"\\b(sex|sexual|xxx|porn|bestiality|zoophil|fuck|nude|naked|18\\+|teen|teenage|underage)\\b",
+    r"\b(sex|sexual|xxx|porn|bestiality|zoophil|fuck|nude|naked|18\+|teen|teenage|underage)\b",
     re.I,
 )
 
 def clean_title(raw):
-    s = re.sub(r"\\s*(?:[-|–]\\s*)?(?:YouTube|Dailymotion Video|Facebook|Shutterstock|Vecteezy)\\s*$", "", raw or "", flags=re.I)
-    s = re.sub(r"\\s*\\|.*$", "", s).strip(" -|.")
+    s = re.sub(r"\s*(?:[-|–]\s*)?(?:YouTube|Dailymotion Video|Facebook|Shutterstock|Vecteezy)\s*$", "", raw or "", flags=re.I)
+    s = re.sub(r"\s*\|.*$", "", s).strip(" -|.")
     lower = s.lower()
     if not s or lower in ("youtube", "video", "girl dog videos"):
         return "A Dog and Owner Share a Sweet Moment"
@@ -43,7 +43,7 @@ def clean_title(raw):
         return "The Special Bond Between a Girl and Her Dog"
     if "german shepherd" in lower:
         return "Young Woman and German Shepherd Relax at Home"
-    s = re.sub(r"\\s+", " ", s).strip()
+    s = re.sub(r"\s+", " ", s).strip()
     return s[:87].rstrip() + ("…" if len(s) > 87 else "")
 
 def category(title):
