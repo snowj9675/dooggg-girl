@@ -32,6 +32,25 @@
     {% if page < total_pages %}<a href="{{ url_for('index', page=page+1, q=search, category=selected) }}">Next →</a>{% endif %}
   </nav>{% endif %}
 </section>
+<section class="consent-zone" aria-label="Optional mature content section">
+  <div class="consent-heading">
+    <div><div class="eyebrow muted">OPTIONAL COLLECTION</div><h2>Viewer discretion</h2><p>Previews in this area may not be suitable for younger audiences. Nothing is revealed without your choice.</p></div>
+  </div>
+  <div class="consent-cover" id="consent-cover">
+    <div class="consent-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="consent-dialog">
+      <strong>Restricted previews</strong>
+      <p>Only continue if you are 18 or older and choose to view potentially sensitive, non-exploitative content.</p>
+      <button id="consent-reveal" type="button">I am 18+ — reveal section</button>
+      <button id="consent-hide" type="button" class="consent-decline">Keep hidden</button>
+    </div>
+  </div>
+  <div class="consent-unlocked" id="consent-unlocked" hidden>
+    <div><strong>Section unlocked</strong><p>The optional collection is not connected yet. Only appropriately reviewed material will be loaded here.</p></div>
+    <button id="consent-lock" type="button">Hide section again</button>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='consent.js') }}" defer></script>
 <section class="future">
   <div class="future-badge">FUTURE SECTION <span>↗</span></div>
   <div><h2>More to discover.</h2><p>Reserved for a future separately reviewed collection.</p></div>
