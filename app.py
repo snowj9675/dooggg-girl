@@ -1,0 +1,164 @@
+import os
+import re
+from datetime import datetime
+from urllib.parse import urlparse
+from uuid import UUID
+
+from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
+from psycopg2 import connect
+from psycopg2.extras import RealDictCursor
+
+app = Flask(__name__)
+app.config["JSON_SORT_KEYS"] = False
+SITE_NAME = os.getenv("SITE_NAME", "DogGirl")
+PAGE_SIZE = 12
+
+# Do not publish explicit animal sexual content or titles about minors.
+BLOCKED = re.compile(
+    r"\\b(sex|sexual|xxx|porn|bestiality|zoophil|fuck|nude|naked|18\\+|teen|teenage|underage)\\b",
+    re.I,
+)
+
+def clean_title(raw):
+    s = re.sub(r"\\s*(?:[-|–]\\s*)?(?:YouTube|Dailymotion Video|Facebook|Shutterstock|Vecteezy)\\s*$", "", raw or "", flags=re.I)
+    s = re.sub(r"\\s*\\|.*$", "", s).strip(" -|.")
+    lower = s.lower()
+    if not s or lower in ("youtube", "video", "girl dog videos"):
+        return "A Dog and Owner Share a Sweet Moment"
+    if "special food" in lower or "spacial food" in lower:
+        return "Girl Treats Her Dogs to a Special Meal"
+    if "annoy your dog" in lower:
+        return "Funny Signs Your Dog Really Loves You"
+    if "kissing my dog" in lower:
+        return "A Playful Dog Gets Lots of Affection"
+    if "group of dogs" in lower:
+        return "Girl Enjoys Playtime With a Group of Dogs"
+    if "training dogs" in lower:
+        return "Fun Dog Training Moments Outdoors"
+    if "playing with dog" in lower or "plays with her pet dog" in lower:
+        return "Girl Shares a Playful Moment With Her Dog"
+    if "petting a dog" in lower:
+        return "A Peaceful Moment Petting a Family Dog"
+    if "dog love" in lower:
+        return "The Special Bond Between a Girl and Her Dog"
+    if "german shepherd" in lower:
+        return "Young Woman and German Shepherd Relax at Home"
+    s = re.sub(r"\\s+", " ", s).strip()
+    return s[:87].rstrip() + ("…" if len(s) > 87 else "")
+
+def category(title):
+    t = title.lower()
+    if any(w in t for w in ("training", "smart", "trick")):
+        return "Training"
+    if any(w in t for w in ("food", "meal", "treat", "eat")):
+        return "Pet Care"
+    if any(w in t for w in ("funny", "laugh", "prank", "annoy")):
+        return "Funny Moments"
+    return "Dog & Owner"
+
+def get_images():
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return [], "DATABASE_URL is not configured."
+    try:
+        with connect(url, connect_timeout=6, sslmode="require") as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, object_key, title, source_url, width, height, created_at
+                    FROM public.saved_images
+                    WHERE object_key IS NOT NULL
+                    ORDER BY created_at DESC
+                    LIMIT 500
+                """)
+                rows = cur.fetchall()
+    except Exception:
+        app.logger.exception("Unable to load saved_images")
+        return [], "The gallery is temporarily unavailable."
+    items = []
+    for row in rows:
+        raw = row["title"] or ""
+        if BLOCKED.search(raw):
+            continue
+        title = clean_title(raw)
+        items.append({
+            "id": str(row["id"]), "title": title,
+            "category": category(title),
+            "width": row["width"], "height": row["height"],
+            "date": row["created_at"].strftime("%b %d, %Y") if row["created_at"] else "",
+        })
+    return items, None
+
+@app.context_processor
+def globals_for_templates():
+    return {"site_name": SITE_NAME}
+
+@app.get("/")
+def index():
+    images, error = get_images()
+    search = request.args.get("q", "").strip()[:100]
+    selected = request.args.get("category", "All")
+    if search:
+        images = [x for x in images if search.casefold() in x["title"].casefold()]
+    if selected != "All":
+        images = [x for x in images if x["category"] == selected]
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    total_pages = max(1, (len(images) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = min(page, total_pages)
+    return render_template("index.html", images=images[(page-1)*PAGE_SIZE:page*PAGE_SIZE],
+        page=page, total_pages=total_pages, search=search, selected=selected,
+        count=len(images), error=error, categories=["All", "Dog & Owner", "Funny Moments", "Training", "Pet Care"])
+
+@app.get("/watch/<uuid:item_id>")
+def watch(item_id):
+    images, error = get_images()
+    item = next((x for x in images if x["id"] == str(item_id)), None)
+    if not item:
+        abort(404)
+    return render_template("watch.html", item=item, error=error)
+
+@app.get("/image/<uuid:item_id>")
+def image(item_id):
+    # The Neon Storage photos bucket is private. With S3 credentials, issue
+    # a short-lived read URL server-side; otherwise use the original image source.
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        abort(404)
+    try:
+        with connect(url, connect_timeout=6, sslmode="require") as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT object_key, source_url, title FROM public.saved_images WHERE id=%s", (str(item_id),))
+                row = cur.fetchone()
+        if not row or BLOCKED.search(row["title"] or ""):
+            abort(404)
+        endpoint = os.getenv("AWS_ENDPOINT_URL_S3")
+        key = os.getenv("AWS_ACCESS_KEY_ID")
+        secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+        bucket = os.getenv("STORAGE_BUCKET", "photos")
+        if endpoint and key and secret:
+            import boto3
+            client = boto3.client("s3", endpoint_url=endpoint,
+                aws_access_key_id=key, aws_secret_access_key=secret,
+                region_name=os.getenv("AWS_REGION", "auto"))
+            signed = client.generate_presigned_url(
+                "get_object", Params={"Bucket": bucket, "Key": row["object_key"]},
+                ExpiresIn=900)
+            response = redirect(signed, code=302)
+            response.headers["Cache-Control"] = "private, max-age=600"
+            return response
+        original = row["source_url"] or ""
+        parsed = urlparse(original)
+        if parsed.scheme == "https" and parsed.hostname in ("encrypted-tbn0.gstatic.com", "images.unsplash.com"):
+            return redirect(original, code=302)
+    except Exception:
+        app.logger.exception("Image delivery failed")
+    abort(404)
+
+@app.get("/health")
+def health():
+    return jsonify(status="ok", service="doggirl")
+
+if __name__ == "__main__":
+    app.run(debug=True)
