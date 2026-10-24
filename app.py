@@ -1,4 +1,5 @@
 import os
+from botocore.config import Config
 import re
 from datetime import datetime
 from urllib.parse import urlparse
@@ -141,12 +142,13 @@ def image(item_id):
             import boto3
             client = boto3.client("s3", endpoint_url=endpoint,
                 aws_access_key_id=key, aws_secret_access_key=secret,
-                region_name=os.getenv("AWS_REGION", "auto"))
+                region_name=os.getenv("AWS_REGION", "us-east-1"),
+                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}))
             signed = client.generate_presigned_url(
                 "get_object", Params={"Bucket": bucket, "Key": row["object_key"]},
                 ExpiresIn=900)
             response = redirect(signed, code=302)
-            response.headers["Cache-Control"] = "private, max-age=600"
+            response.headers["Cache-Control"] = "private, no-store"
             return response
         original = row["source_url"] or ""
         parsed = urlparse(original)
