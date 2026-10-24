@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title }} | {{ site_name }}{% endblock %}
+{% block description %}{{ item.title }} — explore dog and owner moments on {{ site_name }}.{% endblock %}
+{% block content %}
+<div class="watch"><a class="back" href="{{ url_for('index') }}">← Back to explore</a><div class="watch-poster"><img src="{{ url_for('image', item_id=item.id) }}" alt="{{ item.title }}"></div><div class="eyebrow muted">{{ item.category }} · {{ item.date }}</div><h1>{{ item.title }}</h1><p>The video player and richer story details will be introduced in the next phase. Currently this page displays the saved image only.</p></div>
+{% endblock %}
