@@ -5,7 +5,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from uuid import UUID
 
-from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, abort, jsonify, redirect, render_template, request, url_for, Response
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 
@@ -82,6 +82,7 @@ def get_images():
             continue
         title = clean_title(raw)
         items.append({
+            "iso_date": row["created_at"].isoformat() if row["created_at"] else None,
             "id": str(row["id"]), "title": title,
             "category": category(title),
             "width": row["width"], "height": row["height"],
@@ -108,7 +109,19 @@ def index():
         page = 1
     total_pages = max(1, (len(images) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, total_pages)
-    return render_template("index.html", images=images[(page-1)*PAGE_SIZE:page*PAGE_SIZE],
+    visible = images[(page-1)*PAGE_SIZE:page*PAGE_SIZE]
+    structured = {
+        "@context": "https://schema.org", "@type": "CollectionPage",
+        "name": "DogGirl - Dog and Owner Photo Stories",
+        "url": url_for("index", _external=True),
+        "mainEntity": {"@type": "ItemList", "itemListElement": [
+            {"@type": "ListItem", "position": i+1+(page-1)*PAGE_SIZE,
+             "url": url_for("watch", item_id=x["id"], _external=True),
+             "name": x["title"], "image": url_for("image", item_id=x["id"], _external=True)}
+            for i, x in enumerate(visible)
+        ]}
+    }
+    return render_template("index.html", images=visible, structured=structured,
         page=page, total_pages=total_pages, search=search, selected=selected,
         count=len(images), error=error, categories=["All", "Dog & Owner", "Funny Moments", "Training", "Pet Care"])
 
@@ -118,7 +131,16 @@ def watch(item_id):
     item = next((x for x in images if x["id"] == str(item_id)), None)
     if not item:
         abort(404)
-    return render_template("watch.html", item=item, error=error)
+    structured = {
+        "@context": "https://schema.org", "@type": "ImageObject",
+        "name": item["title"], "description": item["title"],
+        "contentUrl": url_for("image", item_id=item["id"], _external=True),
+        "url": url_for("watch", item_id=item["id"], _external=True),
+        "width": item["width"], "height": item["height"]
+    }
+    if item["iso_date"]:
+        structured["datePublished"] = item["iso_date"]
+    return render_template("watch.html", item=item, error=error, structured=structured)
 
 @app.get("/image/<uuid:item_id>")
 def image(item_id):
@@ -157,6 +179,22 @@ def image(item_id):
     except Exception:
         app.logger.exception("Image delivery failed")
     abort(404)
+
+@app.get("/robots.txt")
+def robots():
+    return Response("User-agent: *\nAllow: /\nSitemap: " + url_for("sitemap", _external=True) + "\n", mimetype="text/plain")
+
+@app.get("/sitemap.xml")
+def sitemap():
+    images, _ = get_images()
+    from xml.sax.saxutils import escape
+    urls = [url_for("index", _external=True)] + [
+        url_for("watch", item_id=x["id"], _external=True) for x in images
+    ]
+    content = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(
+        "<url><loc>" + escape(u) + "</loc></url>" for u in urls
+    ) + "</urlset>"
+    return Response(content, mimetype="application/xml")
 
 @app.get("/health")
 def health():
