@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101114">
+  <title>{% block title %}{{ site_name }} | Dog & Owner Moments{% endblock %}</title>
+  <meta name="description" content="{% block description %}Discover entertaining dog and owner moments, dog training, pet care and funny videos.{% endblock %}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell nav">
+      <a class="logo" href="{{ url_for('index') }}" aria-label="DogGirl homepage"><span class="logo-mark">✦</span> DOG<span>GIRL</span><span class="logo-dot">.</span></a>
+      <nav class="desktop-nav"><a href="{{ url_for('index') }}">Explore</a><a href="{{ url_for('index', category='Funny Moments') }}">Funny</a><a href="{{ url_for('index', category='Training') }}">Training</a></nav>
+      <span class="nav-tag">DOG & OWNER STORIES</span>
+    </div>
+  </header>
+  <main class="shell">{% block content %}{% endblock %}</main>
+  <footer class="footer shell"><span>© {{ site_name }} · Dog & owner moments</span><span>Made for dog lovers</span></footer>
+</body>
+</html>
