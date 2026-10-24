@@ -20,8 +20,8 @@
   <div class="gallery">
     {% for item in images %}
     <a class="tile" href="{{ url_for('watch', item_id=item.id) }}" aria-label="View {{ item.title }}">
-      <div class="poster"><img src="{{ url_for('image', item_id=item.id) }}" alt="{{ item.title }}" loading="{% if loop.index <= 3 %}eager{% else %}lazy{% endif %}" onerror="this.style.opacity='.05'"><span class="play" aria-hidden="true">▶</span><span class="photo-tag">STORY</span></div>
-      <div class="tile-info"><span class="category">{{ item.category }}</span><h3>{{ item.title }}</h3><p>{{ item.date }} <span>↗ Explore</span></p></div>
+      <div class="poster"><img src="{{ url_for('image', item_id=item.id) }}" alt="{{ item.title }}" loading="{% if loop.index <= 3 %}eager{% else %}lazy{% endif %}" onerror="this.style.opacity='.05'"><span class="photo-tag">PHOTO</span></div>
+      <div class="tile-info"><span class="category">{{ item.category }}</span><h3>{{ item.title }}</h3><p>{{ item.date }} <span>↗ View photo</span></p></div>
     </a>
     {% endfor %}
   </div>
@@ -33,8 +33,8 @@
   </nav>{% endif %}
 </section>
 <section class="future">
-  <div class="future-badge">COMING LATER <span>↗</span></div>
-  <div><h2>More to discover.</h2><p>A new collection powered by our partner feed will live here. This space is reserved and doesn't make external requests yet.</p></div>
+  <div class="future-badge">FUTURE SECTION <span>↗</span></div>
+  <div><h2>More to discover.</h2><p>Reserved for a future separately reviewed collection.</p></div>
   <span class="future-icon" aria-hidden="true">✳</span>
 </section>
 {% endblock %}
