@@ -5,7 +5,8 @@ from datetime import datetime
 from urllib.parse import urlparse
 from uuid import UUID
 
-from flask import Flask, abort, jsonify, redirect, render_template, request, url_for, Response
+from flask import Flask, abort, jsonify, redirect, render_template, request, url_for, Response, make_response
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 
@@ -195,6 +196,69 @@ def sitemap():
         "<url><loc>" + escape(u) + "</loc></url>" for u in urls
     ) + "</urlset>"
     return Response(content, mimetype="application/xml")
+
+
+# These routes enforce consent on the server, not only through CSS.
+# No video database is connected: reviewed, lawful content is a prerequisite.
+RESTRICTED_COOKIE = "dg_restricted_consent"
+RESTRICTED_MAX_AGE = 1800
+
+def consent_serializer():
+    secret = os.getenv("RESTRICTED_SESSION_SECRET")
+    if not secret or len(secret) < 32:
+        return None
+    return URLSafeTimedSerializer(secret, salt="doggirl-restricted-v1")
+
+def has_restricted_consent():
+    signer = consent_serializer()
+    if not signer:
+        return False
+    try:
+        return signer.loads(request.cookies.get(RESTRICTED_COOKIE, ""), max_age=RESTRICTED_MAX_AGE) == "adult-acknowledged"
+    except (BadSignature, SignatureExpired):
+        return False
+
+def private_response(response):
+    response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, noimageindex"
+    response.headers["Vary"] = "Cookie"
+    return response
+
+def same_origin_post():
+    # Require an Origin header matching the configured public site origin.
+    # A missing Origin is rejected rather than silently trusted.
+    origin = request.headers.get("Origin", "").rstrip("/")
+    expected = os.getenv("PUBLIC_SITE_ORIGIN", "").rstrip("/")
+    return bool(expected and origin == expected and request.headers.get("Sec-Fetch-Site","same-origin") in ("same-origin","none"))
+
+@app.post("/api/restricted/consent")
+def grant_restricted_consent():
+    if not same_origin_post():
+        return private_response(jsonify(error="Origin not allowed")), 403
+    signer = consent_serializer()
+    if not signer:
+        return private_response(jsonify(error="Restricted section is not configured")), 503
+    if not request.is_json or request.get_json(silent=True) != {"adult": True}:
+        return private_response(jsonify(error="Explicit acknowledgement required")), 400
+    resp = private_response(jsonify(allowed=True))
+    resp.set_cookie(RESTRICTED_COOKIE, signer.dumps("adult-acknowledged"),
+        max_age=RESTRICTED_MAX_AGE, secure=True, httponly=True, samesite="Strict", path="/api/restricted")
+    return resp
+
+@app.post("/api/restricted/revoke")
+def revoke_restricted_consent():
+    if not same_origin_post():
+        return private_response(jsonify(error="Origin not allowed")), 403
+    resp = private_response(jsonify(allowed=False))
+    resp.delete_cookie(RESTRICTED_COOKIE, path="/api/restricted", secure=True, httponly=True, samesite="Strict")
+    return resp
+
+@app.get("/api/restricted/items")
+def restricted_items():
+    if not has_restricted_consent():
+        return private_response(jsonify(error="Consent required")), 403
+    # Deliberately empty until a properly reviewed collection is available.
+    return private_response(jsonify(items=[], message="No reviewed items available"))
 
 @app.get("/health")
 def health():
